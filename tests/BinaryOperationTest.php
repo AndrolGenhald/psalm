@@ -249,6 +249,42 @@ class BinaryOperationTest extends TestCase
         $this->analyzeFile('somefile.php', new Context());
     }
 
+    public function testFalseIncrementStrictBinaryOperands(): void
+    {
+        $this->testConfig->strict_binary_operands = true;
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                $a = false;
+                $a++;
+            ',
+        );
+
+        $this->expectException(CodeException::class);
+        $this->expectExceptionMessage('FalseOperand');
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    public function testTrueIncrementStrictBinaryOperands(): void
+    {
+        $this->testConfig->strict_binary_operands = true;
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                $a = true;
+                $a++;
+            ',
+        );
+
+        $this->expectException(CodeException::class);
+        $this->expectExceptionMessage('InvalidOperand');
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
     /**
      * @return iterable<string,array{code:string,assertions?:array<string,string>,ignored_issues?:list<string>,php_version?:string}>
      */
@@ -852,6 +888,80 @@ class BinaryOperationTest extends TestCase
                         return 1;
                     }',
             ],
+            'booleanTrueInArithmetic' => [
+                'code' => '<?php
+                    /** @psalm-check-type-exact $var = 2 */
+                    $var = true + 1;
+                    /** @psalm-check-type-exact $var = -1 */
+                    $var = true - 2;
+                    /** @psalm-check-type-exact $var = 1 */
+                    $var = true % 3;
+                    /** @psalm-check-type-exact $var = 2 */
+                    $var = true * 2;
+                    /** @psalm-check-type-exact $var = 1 */
+                    $var = true ** 3;
+                    /** @psalm-check-type-exact $var = 5 */
+                    $var = true | 4;
+                    /** @psalm-check-type-exact $var = 2 */
+                    $var = true ^ 3;
+                    /** @psalm-check-type-exact $var = 1 */
+                    $var = true & 3;
+                    /** @psalm-check-type-exact $var = 4 */
+                    $var = true << 2;
+                    /** @psalm-check-type-exact $var = 1 */
+                    $var = true >> 0;
+                ',
+            ],
+            'booleanFalseInArithmetic' => [
+                'code' => '<?php
+                    /** @psalm-check-type-exact $var = 1 */
+                    $var = false + 1;
+                    /** @psalm-check-type-exact $var = -2 */
+                    $var = false - 2;
+                    /** @psalm-check-type-exact $var = 0 */
+                    $var = false % 3;
+                    /** @psalm-check-type-exact $var = 0 */
+                    $var = false * 2;
+                    /** @psalm-check-type-exact $var = 0 */
+                    $var = false ** 3;
+                    /** @psalm-check-type-exact $var = 4 */
+                    $var = false | 4;
+                    /** @psalm-check-type-exact $var = 3 */
+                    $var = false ^ 3;
+                    /** @psalm-check-type-exact $var = 0 */
+                    $var = false & 3;
+                    /** @psalm-check-type-exact $var = 0 */
+                    $var = false << 2;
+                    /** @psalm-check-type-exact $var = 0 */
+                    $var = false >> 0;
+                ',
+            ],
+            'booleanInArithmetic' => [
+                'code' => '<?php
+                    $bool = random_int(0, 1) ? true : false;
+
+                    /** @psalm-check-type-exact $var = 1|2 */
+                    $var = $bool + 1;
+                    /** @psalm-check-type-exact $var = -1|-2 */
+                    $var = $bool - 2;
+                    /** @psalm-check-type-exact $var = 0|1 */
+                    $var = $bool % 3;
+                    /** @psalm-check-type-exact $var = 0|2 */
+                    $var = $bool * 2;
+                    /** @psalm-check-type-exact $var = 0|1 */
+                    $var = $bool ** 3;
+                    /** @psalm-check-type-exact $var = 4|5 */
+                    $var = $bool | 4;
+                    /** @psalm-check-type-exact $var = 2|3 */
+                    $var = $bool ^ 3;
+                    /** @psalm-check-type-exact $var = 0|1 */
+                    $var = $bool & 3;
+                    /** @psalm-check-type-exact $var = 0|4 */
+                    $var = $bool << 2;
+                    /** @psalm-check-type-exact $var = 0|1 */
+                    $var = $bool >> 0;
+                ',
+            ],
         ];
     }
 
@@ -914,18 +1024,6 @@ class BinaryOperationTest extends TestCase
                     $a = "hello";
                     $a++;',
                 'error_message' => 'StringIncrement',
-            ],
-            'falseIncrement' => [
-                'code' => '<?php
-                    $a = false;
-                    $a++;',
-                'error_message' => 'FalseOperand',
-            ],
-            'trueIncrement' => [
-                'code' => '<?php
-                    $a = true;
-                    $a++;',
-                'error_message' => 'InvalidOperand',
             ],
             'possiblyDivByZero' => [
                 'code' => '<?php

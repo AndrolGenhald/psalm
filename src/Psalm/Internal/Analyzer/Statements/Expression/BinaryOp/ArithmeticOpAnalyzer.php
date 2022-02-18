@@ -81,6 +81,9 @@ class ArithmeticOpAnalyzer
         }
 
         if ($left_type && $right_type) {
+            $left_type = self::coerceTypesForArithmetic($left_type, $parent, $config);
+            $right_type = self::coerceTypesForArithmetic($right_type, $parent, $config);
+
             if ($left_type->isNull()) {
                 if ($statements_source && IssueBuffer::accepts(
                     new NullOperand(
@@ -1361,5 +1364,41 @@ class ArithmeticOpAnalyzer
             $new_result_type,
             $result_type
         );
+    }
+
+    private static function coerceTypesForArithmetic(Union $type, PhpParser\Node $operation, Config $config): Union
+    {
+        if (!$config->strict_binary_operands
+            && $type->hasBool() && (
+                $operation instanceof PhpParser\Node\Expr\BinaryOp\Plus
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\Minus
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\Mod
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\Mul
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\Pow
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\BitwiseOr
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\BitwiseXor
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\BitwiseAnd
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\ShiftLeft
+                || $operation instanceof PhpParser\Node\Expr\BinaryOp\ShiftRight
+            )
+        ) {
+            // Cast booleans to 0|1 for arithmetic operations unless strict_binary_operands is set
+            $type = clone $type;
+            if (isset($type->getAtomicTypes()['bool'])) {
+                $type->addType(new TLiteralInt(0));
+                $type->addType(new TLiteralInt(1));
+            } else {
+                if (isset($type->getAtomicTypes()['true'])) {
+                    $type->addType(new TLiteralInt(1));
+                }
+                if (isset($type->getAtomicTypes()['false'])) {
+                    $type->addType(new TLiteralInt(0));
+                }
+            }
+            $type->removeType('bool');
+            $type->removeType('true');
+            $type->removeType('false');
+        }
+        return $type;
     }
 }
